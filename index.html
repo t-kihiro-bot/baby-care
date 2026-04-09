@@ -738,8 +738,9 @@ const T = {
 // ─── State ──────────────────────────────────────────────────────────────────
 const KEY     = 'bcn_v1';
 const GAS_KEY = 'bcn_gas_url';
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbx_QH5oL5paSp4pvP6LOCE9SDXImVtFnnr1qqRGLzUw2EC7MZrXCwAc0yZfJXatR6UC/exec';
 let recs    = [];
-let gasUrl  = localStorage.getItem(GAS_KEY) || '';
+let gasUrl  = localStorage.getItem(GAS_KEY) || DEFAULT_GAS_URL;
 let pending = null;
 let curDays = 0;
 
