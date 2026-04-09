@@ -429,8 +429,9 @@
   </div>
 
   <div class="card">
-    <div class="card-head">📋 設定手順</div>
-    <div class="steps">
+    <details>
+      <summary style="cursor:pointer;font-size:14px;font-weight:700;color:var(--sub);padding:4px 0;list-style:none">📋 スプレッドシート設定手順を見る ▼</summary>
+      <div class="steps" style="margin-top:12px">
       <div class="step">
         <div class="step-num">1</div>
         <div>
@@ -552,44 +553,46 @@ function json(d){
           このページ上部の入力欄に貼り付けて保存します。
         </div>
       </div>
-    </div>
+      </div>
+    </details>
   </div>
 
   <div class="card">
-    <div class="card-head">🔤 文字サイズ</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px" id="fsSelectorWrap">
-      <button class="fs-sel-btn" onclick="setFontSize('small')">小<div style="font-size:11px;color:var(--sub);margin-top:2px">小さめ</div></button>
-      <button class="fs-sel-btn" onclick="setFontSize('medium')">中<div style="font-size:11px;color:var(--sub);margin-top:2px">標準</div></button>
-      <button class="fs-sel-btn" onclick="setFontSize('large')">大<div style="font-size:11px;color:var(--sub);margin-top:2px">大きめ</div></button>
+    <div class="card-head">🎨 表示設定</div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:13px;color:var(--sub);margin-bottom:6px;font-weight:600">文字サイズ</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px" id="fsSelectorWrap">
+        <button class="fs-sel-btn" id="fs-small" onclick="setFontSize('small')">小<div style="font-size:11px;color:var(--sub);margin-top:2px">小さめ</div></button>
+        <button class="fs-sel-btn" id="fs-medium" onclick="setFontSize('medium')">中<div style="font-size:11px;color:var(--sub);margin-top:2px">標準</div></button>
+        <button class="fs-sel-btn" id="fs-large" onclick="setFontSize('large')">大<div style="font-size:11px;color:var(--sub);margin-top:2px">大きめ</div></button>
+      </div>
     </div>
-  </div>
-
-  <div class="card">
-    <div class="card-head">👁 ホーム画面の表示</div>
-    <div class="toggle-row">
-      <span class="toggle-label">🍼 授乳セクション</span>
-      <label class="toggle-switch">
-        <input type="checkbox" id="toggleFeed" onchange="toggleHomeSection('feed')">
-        <span class="toggle-slider"></span>
-      </label>
+    <div style="margin-bottom:10px">
+      <div style="font-size:13px;color:var(--sub);margin-bottom:6px;font-weight:600">テーマ</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+        <button class="setting-btn secondary" style="margin:0" onclick="setTheme('auto')">🌙 自動</button>
+        <button class="setting-btn secondary" style="margin:0" onclick="setTheme('light')">☀️ ライト</button>
+        <button class="setting-btn secondary" style="margin:0" onclick="setTheme('dark')">🌑 ダーク</button>
+      </div>
     </div>
-    <div class="toggle-divider"></div>
-    <div class="toggle-row">
-      <span class="toggle-label">💩 排泄セクション</span>
-      <label class="toggle-switch">
-        <input type="checkbox" id="toggleExc" onchange="toggleHomeSection('exc')">
-        <span class="toggle-slider"></span>
-      </label>
+    <div>
+      <div style="font-size:13px;color:var(--sub);margin-bottom:6px;font-weight:600">ホーム画面の表示</div>
+      <div class="toggle-row">
+        <span class="toggle-label">🍼 授乳セクション</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggleFeed" onchange="toggleHomeSection('feed')">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="toggle-divider"></div>
+      <div class="toggle-row">
+        <span class="toggle-label">💩 排泄セクション</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggleExc" onchange="toggleHomeSection('exc')">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
     </div>
-  </div>
-
-  <div class="card">
-    <div class="card-head">🌙 表示モード</div>
-    <div class="btn-grid">
-      <button class="setting-btn secondary" style="margin:0" onclick="setTheme('auto')">🌙 自動</button>
-      <button class="setting-btn secondary" style="margin:0" onclick="setTheme('light')">☀️ ライト</button>
-    </div>
-    <button class="setting-btn secondary" style="margin-top:8px" onclick="setTheme('dark')">🌑 ダーク</button>
   </div>
 </div>
 
@@ -1656,8 +1659,8 @@ function setFontSize(size) {
   r.setProperty('--fs-xl',   s.xl);
   r.setProperty('--fs-btn',  s.btn);
   localStorage.setItem('bcn_fs', size);
-  document.querySelectorAll('.fs-sel-btn').forEach(function(b,i){
-    b.classList.toggle('on', ['small','medium','large'][i] === size);
+  ['small','medium','large'].forEach(function(s){
+    document.getElementById('fs-'+s).classList.toggle('on', s === size);
   });
 }
 // ─── Baby info ───────────────────────────────────────────────────────────────
