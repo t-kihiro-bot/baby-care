@@ -1814,7 +1814,6 @@ async function syncConfigFromSheet() {
       }
       if (cfg.gender) localStorage.setItem('bcn_gender', cfg.gender);
       initBabyInfoUI();
-      renderGrowth();
     }
   } catch(e){}
 }
@@ -1832,11 +1831,15 @@ loadGrowth();
 updateGasStatus();
 refresh();
 setInterval(updateElapsed, 15000);
-// 起動時にシートから同期
+// 起動時にシートから同期（config→growth の順で直列実行し、birthdateが確定してからrenderGrowth）
 if (gasUrl) {
   syncFromSheet().then(function(ok){ if(ok) refresh(); });
-  syncConfigFromSheet().then(function(){ initBabyInfoUI(); renderGrowth(); });
-  syncGrowthFromSheet().then(function(){ renderGrowth(); });
+  syncConfigFromSheet()
+    .then(function(){
+      initBabyInfoUI();
+      return syncGrowthFromSheet();
+    })
+    .then(function(){ renderGrowth(); });
 }
 </script>
 </body>
