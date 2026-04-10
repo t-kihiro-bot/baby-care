@@ -1196,12 +1196,12 @@ function saveGrowth() {
 }
 
 // 複数フォーマットの日付文字列をローカル時刻としてパース
-// 対応: "YYYY-MM-DD", "M/D/YYYY", "YYYY/MM/DD", Date.toString()
+// 対応: "YYYY-MM-DD", "M/D/YYYY", "YYYY/MM/DD", "Mon Feb 09 2026...", ISO 8601
 function parseDateLocal(str) {
   if (!str) return new Date(NaN);
   str = String(str).trim();
   // YYYY-MM-DD
-  var m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  var m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if (m) return new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
   // YYYY/MM/DD
   m = str.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
@@ -1209,7 +1209,11 @@ function parseDateLocal(str) {
   // M/D/YYYY
   m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (m) return new Date(Number(m[3]), Number(m[1])-1, Number(m[2]));
-  // Date.toString() 形式など → Dateコンストラクタにフォールバック
+  // "Mon Feb 09 2026 ..." 形式 (GAS の String(Date) / Safari非対応対策)
+  var monthMap = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+  m = str.match(/\b([A-Z][a-z]{2})\s+(\d{1,2})\s+(\d{4})\b/);
+  if (m && monthMap[m[1]] !== undefined) return new Date(Number(m[3]), monthMap[m[1]], Number(m[2]));
+  // Dateコンストラクタにフォールバック
   var d = new Date(str);
   return d;
 }
@@ -1797,18 +1801,14 @@ async function syncConfigFromSheet() {
     if (cfg) {
       if (cfg.name) localStorage.setItem('bcn_name', cfg.name);
       if (cfg.birthdate) {
-        // new Date() で一度パースし直して YYYY-MM-DD に正規化してから保存
-        // "Mon Feb 09 2026..." のような形式にも対応
-        var bd = new Date(cfg.birthdate);
+        // parseDateLocal で正確にパース（YYYY-MM-DD / Mon Feb 09 2026... など全形式対応）
+        var bdParsed = parseDateLocal(cfg.birthdate);
         var normalized;
-        if (!isNaN(bd.getTime())) {
-          normalized = bd.getFullYear()+'-'+String(bd.getMonth()+1).padStart(2,'0')+'-'+String(bd.getDate()).padStart(2,'0');
+        if (!isNaN(bdParsed.getTime())) {
+          normalized = bdParsed.getFullYear()+'-'+String(bdParsed.getMonth()+1).padStart(2,'0')+'-'+String(bdParsed.getDate()).padStart(2,'0');
         } else {
-          // new Date() で失敗した場合は parseDateLocal でフォールバック
-          var bd2 = parseDateLocal(cfg.birthdate);
-          normalized = !isNaN(bd2.getTime())
-            ? bd2.getFullYear()+'-'+String(bd2.getMonth()+1).padStart(2,'0')+'-'+String(bd2.getDate()).padStart(2,'0')
-            : cfg.birthdate;
+          // どのフォーマットでもパース不能の場合は raw 値をそのまま保存
+          normalized = cfg.birthdate;
         }
         localStorage.setItem('bcn_birthdate', normalized);
       }
@@ -1816,7 +1816,7 @@ async function syncConfigFromSheet() {
       initBabyInfoUI();
       renderGrowth();
     }
-  } catch(e){}
+  } catch(e){ console.error('syncConfigFromSheet error:', e); }
 }
 async function saveConfigToSheet(key, value) {
   if (!gasUrl) return;
