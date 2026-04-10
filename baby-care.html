@@ -1797,20 +1797,20 @@ async function syncConfigFromSheet() {
     if (cfg) {
       if (cfg.name) localStorage.setItem('bcn_name', cfg.name);
       if (cfg.birthdate) {
-        // YYYY-MM-DD 形式のときだけ保存。それ以外（GASのDate.toString()など）は
-        // ローカルの値を上書きしない（timezone変換で日付がズレるのを防ぐ）
         var bdStr = String(cfg.birthdate);
         var bdMatch = bdStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        // デバッグ用トースト（確認後に削除）
+        showToast('📅 GAS birthdate: ' + bdStr.substring(0, 30));
         if (bdMatch) {
           localStorage.setItem('bcn_birthdate', bdStr);
         }
-        // YYYY-MM-DD 以外の場合は既存のローカル値をそのまま維持
+        // YYYY-MM-DD 以外はローカルを上書きしない
       }
       if (cfg.gender) localStorage.setItem('bcn_gender', cfg.gender);
       initBabyInfoUI();
       renderGrowth();
     }
-  } catch(e){ console.error('syncConfigFromSheet error:', e); }
+  } catch(e){ showToast('❌ cfg error: '+e.message); }
 }
 async function saveConfigToSheet(key, value) {
   if (!gasUrl) return;
