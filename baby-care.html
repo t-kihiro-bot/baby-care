@@ -1794,13 +1794,13 @@ async function syncConfigFromSheet() {
   if (!gasUrl) return;
   try {
     var cfg = await sheetFetch({action:'getconfig'});
+    // デバッグ用：常に結果を表示
+    showToast('🔍 cfg: ' + JSON.stringify(cfg).substring(0, 60));
     if (cfg) {
       if (cfg.name) localStorage.setItem('bcn_name', cfg.name);
       if (cfg.birthdate) {
         var bdStr = String(cfg.birthdate);
         var bdMatch = bdStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        // デバッグ用トースト（確認後に削除）
-        showToast('📅 GAS birthdate: ' + bdStr.substring(0, 30));
         if (bdMatch) {
           localStorage.setItem('bcn_birthdate', bdStr);
         }
