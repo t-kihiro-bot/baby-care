@@ -1809,15 +1809,27 @@ async function syncConfigFromSheet() {
       if (cfg.birthdate) {
         var bdStr = String(cfg.birthdate);
         debugLog('[bd] raw=' + bdStr);
+        var normalized = null;
+        // YYYY-MM-DD 形式ならそのまま使う
         var bdMatch = bdStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
         if (bdMatch) {
-          localStorage.setItem('bcn_birthdate', bdStr);
-          debugLog('[bd] 保存OK: ' + bdStr);
+          normalized = bdStr;
         } else {
-          debugLog('[bd] 形式不正のため上書きせず。local=' + localStorage.getItem('bcn_birthdate'));
+          // "Mon Feb 09 2026 00:00:00 GMT+0900..." 形式から月日年を抽出
+          var monthMap = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+          var mm = bdStr.match(/\w{3}\s+(\w{3})\s+(\d{1,2})\s+(\d{4})/);
+          if (mm && monthMap[mm[1]] !== undefined) {
+            normalized = mm[3]+'-'+String(monthMap[mm[1]]+1).padStart(2,'0')+'-'+String(Number(mm[2])).padStart(2,'0');
+          }
+        }
+        if (normalized) {
+          localStorage.setItem('bcn_birthdate', normalized);
+          debugLog('[bd] 保存OK: ' + normalized);
+        } else {
+          debugLog('[bd] パース失敗: ' + bdStr);
         }
       } else {
-        debugLog('[bd] cfg.birthdateが空。local=' + localStorage.getItem('bcn_birthdate'));
+        debugLog('[bd] cfg.birthdateが空');
       }
       if (cfg.gender) localStorage.setItem('bcn_gender', cfg.gender);
       initBabyInfoUI();
