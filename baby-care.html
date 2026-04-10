@@ -1797,14 +1797,24 @@ async function syncConfigFromSheet() {
     if (cfg) {
       if (cfg.name) localStorage.setItem('bcn_name', cfg.name);
       if (cfg.birthdate) {
-        // どんな形式で来ても YYYY-MM-DD に正規化してから保存
-        var bd = parseDateLocal(cfg.birthdate);
+        // new Date() で一度パースし直して YYYY-MM-DD に正規化してから保存
+        // "Mon Feb 09 2026..." のような形式にも対応
+        var bd = new Date(cfg.birthdate);
+        var normalized;
         if (!isNaN(bd.getTime())) {
-          var normalized = bd.getFullYear()+'-'+String(bd.getMonth()+1).padStart(2,'0')+'-'+String(bd.getDate()).padStart(2,'0');
-          localStorage.setItem('bcn_birthdate', normalized);
+          normalized = bd.getFullYear()+'-'+String(bd.getMonth()+1).padStart(2,'0')+'-'+String(bd.getDate()).padStart(2,'0');
+        } else {
+          // new Date() で失敗した場合は parseDateLocal でフォールバック
+          var bd2 = parseDateLocal(cfg.birthdate);
+          normalized = !isNaN(bd2.getTime())
+            ? bd2.getFullYear()+'-'+String(bd2.getMonth()+1).padStart(2,'0')+'-'+String(bd2.getDate()).padStart(2,'0')
+            : cfg.birthdate;
         }
+        localStorage.setItem('bcn_birthdate', normalized);
       }
       if (cfg.gender) localStorage.setItem('bcn_gender', cfg.gender);
+      initBabyInfoUI();
+      renderGrowth();
     }
   } catch(e){}
 }
