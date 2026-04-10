@@ -1814,6 +1814,7 @@ async function syncConfigFromSheet() {
       }
       if (cfg.gender) localStorage.setItem('bcn_gender', cfg.gender);
       initBabyInfoUI();
+      renderGrowth();
     }
   } catch(e){}
 }
