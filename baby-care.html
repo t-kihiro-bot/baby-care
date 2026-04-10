@@ -398,6 +398,8 @@
 
 <!-- SETTINGS -->
 <div id="pg-settings" class="page">
+  <!-- デバッグ情報（確認後削除） -->
+  <div id="debugBox" style="background:#222;color:#0f0;font-size:11px;padding:8px;margin-bottom:8px;border-radius:6px;word-break:break-all;white-space:pre-wrap;display:none"></div>
   <div class="card">
     <div class="card-head">👶 赤ちゃんの情報</div>
     <div class="setting-row">
@@ -1790,27 +1792,38 @@ async function syncGrowthFromSheet() {
     if (Array.isArray(data)) { growthRecs = data; saveGrowth(); }
   } catch(e){}
 }
+function debugLog(msg) {
+  var box = document.getElementById('debugBox');
+  if (!box) return;
+  box.style.display = 'block';
+  box.textContent += msg + '\n';
+}
 async function syncConfigFromSheet() {
-  if (!gasUrl) return;
+  debugLog('[sync] gasUrl=' + (gasUrl ? gasUrl.substring(0,40)+'...' : 'EMPTY'));
+  if (!gasUrl) { debugLog('[sync] gasUrl未設定のためスキップ'); return; }
   try {
     var cfg = await sheetFetch({action:'getconfig'});
-    // デバッグ用：常に結果を表示
-    showToast('🔍 cfg: ' + JSON.stringify(cfg).substring(0, 60));
+    debugLog('[cfg] ' + JSON.stringify(cfg));
     if (cfg) {
       if (cfg.name) localStorage.setItem('bcn_name', cfg.name);
       if (cfg.birthdate) {
         var bdStr = String(cfg.birthdate);
+        debugLog('[bd] raw=' + bdStr);
         var bdMatch = bdStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
         if (bdMatch) {
           localStorage.setItem('bcn_birthdate', bdStr);
+          debugLog('[bd] 保存OK: ' + bdStr);
+        } else {
+          debugLog('[bd] 形式不正のため上書きせず。local=' + localStorage.getItem('bcn_birthdate'));
         }
-        // YYYY-MM-DD 以外はローカルを上書きしない
+      } else {
+        debugLog('[bd] cfg.birthdateが空。local=' + localStorage.getItem('bcn_birthdate'));
       }
       if (cfg.gender) localStorage.setItem('bcn_gender', cfg.gender);
       initBabyInfoUI();
       renderGrowth();
     }
-  } catch(e){ showToast('❌ cfg error: '+e.message); }
+  } catch(e){ debugLog('[ERROR] ' + e.message); }
 }
 async function saveConfigToSheet(key, value) {
   if (!gasUrl) return;
