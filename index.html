@@ -384,6 +384,7 @@
     <button class="rec-tab on" onclick="setRecTab('all',this)">すべて</button>
     <button class="rec-tab" onclick="setRecTab('feed',this)">🍼 授乳</button>
     <button class="rec-tab" onclick="setRecTab('exc',this)">💩 排泄</button>
+    <button class="rec-tab" onclick="setRecTab('sleep',this)">💤 就寝</button>
   </div>
   <div class="rec-day-nav">
     <button class="day-nav-btn" onclick="changeRecDay(-1)">‹</button>
@@ -1030,6 +1031,12 @@ function openSleepModal() {
 }
 function closeSleepModal() { document.getElementById('sleepOverlay').classList.add('hide'); }
 function sleepOverlayClick(e) { if(e.target===document.getElementById('sleepOverlay')) closeSleepModal(); }
+function deleteSleepFromTimeline(id) {
+  if (!confirm('この就寝記録を削除しますか？')) return;
+  sleepRecs = sleepRecs.filter(function(r){ return r.id!==id; });
+  saveSleep(); updateElapsed(); renderRecs();
+  showToast('削除しました');
+}
 function saveSleepRecord() {
   var s = document.getElementById('sleepStart').value;
   if (!s) { showToast('寝た時刻を入力してください'); return; }
@@ -1104,14 +1111,17 @@ function renderRecs() {
   var today = new Date(); today.setHours(0,0,0,0);
   document.getElementById('dayNavNext').disabled = (viewDate.getTime() >= today.getTime());
 
-  if (!recs.length) { el.innerHTML='<div class="empty"><div class="ei">📝</div>記録がありません</div>'; return; }
+  // 睡眠記録を統一フォーマットに変換（_sleep フラグ付き）
+  var sleepAsRecs = sleepRecs.map(function(s){ return {id:s.id, ts:s.ts, _sleep:true}; });
 
   // タブフィルタ
-  var filtered = recs.filter(function(r){
-    if (curRecTab === 'feed') return r.cat === 'feed';
-    if (curRecTab === 'exc')  return r.cat === 'exc';
-    return true;
-  });
+  var filtered;
+  if (curRecTab === 'feed')  filtered = recs.filter(function(r){ return r.cat==='feed'; });
+  else if (curRecTab === 'exc')   filtered = recs.filter(function(r){ return r.cat==='exc'; });
+  else if (curRecTab === 'sleep') filtered = sleepAsRecs;
+  else filtered = recs.concat(sleepAsRecs); // すべて
+
+  if (!filtered.length) { el.innerHTML='<div class="empty"><div class="ei">📝</div>記録がありません</div>'; return; }
 
   // 表示中の日付でフィルタ
   var dayStart = viewDate.getTime();
@@ -1136,12 +1146,21 @@ function renderRecs() {
     if (slotRecs.length) {
       slotRecs.forEach(function(r) {
         var recTime = (function(){ var rd=new Date(r.ts); return rd.getHours()+':'+String(rd.getMinutes()).padStart(2,'0'); })();
-        html += '<div class="tl-event" onclick="openActionModal(\''+r.id+'\')">';
-        html += '<span class="tl-ico">'+T[r.type].ico+'</span>';
-        html += '<span>'+T[r.type].lbl+'</span>';
-        if (r.ml) html += '<span style="font-size:12px;font-weight:700;color:var(--active)">'+r.ml+'ml</span>';
-        html += '<span style="font-size:11px;color:var(--sub);font-weight:400">'+recTime+'</span>';
-        html += '</div>';
+        if (r._sleep) {
+          // 就寝記録
+          html += '<div class="tl-event" style="background:var(--sleep-bg);border-color:var(--sleep-t);color:var(--sleep-t)" onclick="deleteSleepFromTimeline(\''+r.id+'\')">';
+          html += '<span class="tl-ico">💤</span>';
+          html += '<span>就寝</span>';
+          html += '<span style="font-size:11px;font-weight:400;opacity:.7">'+recTime+'</span>';
+          html += '</div>';
+        } else {
+          html += '<div class="tl-event" onclick="openActionModal(\''+r.id+'\')">';
+          html += '<span class="tl-ico">'+T[r.type].ico+'</span>';
+          html += '<span>'+T[r.type].lbl+'</span>';
+          if (r.ml) html += '<span style="font-size:12px;font-weight:700;color:var(--active)">'+r.ml+'ml</span>';
+          html += '<span style="font-size:11px;color:var(--sub);font-weight:400">'+recTime+'</span>';
+          html += '</div>';
+        }
       });
     }
     html += '</div></div>';
