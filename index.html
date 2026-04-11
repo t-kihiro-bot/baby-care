@@ -381,8 +381,8 @@
 <!-- RECORDS -->
 <div id="pg-records" class="page">
   <div class="rec-tabs">
-    <button class="rec-tab on" onclick="setRecTab('all',this)">すべて</button>
-    <button class="rec-tab" onclick="setRecTab('feed',this)">🍼 授乳</button>
+    <button class="rec-tab" onclick="setRecTab('all',this)">すべて</button>
+    <button class="rec-tab on" onclick="setRecTab('feed',this)">🍼 授乳</button>
     <button class="rec-tab" onclick="setRecTab('exc',this)">💩 排泄</button>
     <button class="rec-tab" onclick="setRecTab('sleep',this)">💤 就寝</button>
   </div>
@@ -1076,7 +1076,7 @@ function updateElapsed() {
 }
 
 // ─── Record Timeline ─────────────────────────────────────────────────────────
-var curRecTab  = 'all';
+var curRecTab  = 'feed';
 var curRecDate = null; // "YYYY-M-D"
 
 function initRecDate() {
