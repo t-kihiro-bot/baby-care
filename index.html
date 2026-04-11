@@ -372,9 +372,8 @@
   </div>
   <div class="card" id="homeSleepCard">
     <div class="card-head">💤 睡眠を記録</div>
-    <div id="sleepStatus" style="font-size:13px;color:var(--sub);text-align:center;margin-bottom:10px;display:none"></div>
     <div class="btn-grid">
-      <button class="act-btn btn-sleep" onclick="openSleepModal()"><span class="bi">😴</span><span class="bl">睡眠を記録</span></button>
+      <button class="act-btn btn-sleep" onclick="openSleepModal()"><span class="bi">😴</span><span class="bl">寝た</span></button>
     </div>
   </div>
 </div>
@@ -671,10 +670,7 @@ function json(d){
   <div class="modal-box">
     <h3>💤 睡眠を記録</h3>
     <div style="font-size:12px;color:var(--sub);margin-bottom:6px;text-align:center">寝た時刻</div>
-    <input type="datetime-local" class="time-input" id="sleepStart" style="font-size:16px;margin-bottom:12px" oninput="updateSleepDurPreview()">
-    <div style="font-size:12px;color:var(--sub);margin-bottom:6px;text-align:center">起きた時刻</div>
-    <input type="datetime-local" class="time-input" id="sleepEnd" style="font-size:16px;margin-bottom:16px" oninput="updateSleepDurPreview()">
-    <div id="sleepDurPreview" style="text-align:center;font-size:14px;color:var(--sleep-t);font-weight:700;margin-bottom:12px"></div>
+    <input type="datetime-local" class="time-input" id="sleepStart" style="font-size:16px;margin-bottom:16px">
     <div class="modal-btns">
       <button class="mbtn mbtn-cancel" onclick="closeSleepModal()">キャンセル</button>
       <button class="mbtn mbtn-save" onclick="saveSleepRecord()">保存する</button>
@@ -1023,51 +1019,26 @@ function loadSleep() {
 function saveSleep() {
   try { localStorage.setItem(SLEEP_KEY, JSON.stringify(sleepRecs)); } catch(e){}
 }
-function sleepDurStr(ms) {
-  var totalMin = Math.floor(ms/60000);
-  var h = Math.floor(totalMin/60), m = totalMin%60;
-  return h>0 ? h+'時間'+m+'分' : m+'分';
-}
 function dtLocalStr(ts) {
   var d = new Date(ts);
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')
     +'T'+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
 }
 function openSleepModal() {
-  var now = Date.now();
-  document.getElementById('sleepEnd').value   = dtLocalStr(now);
-  document.getElementById('sleepStart').value = dtLocalStr(now - 60*60*1000); // 1時間前をデフォルト
-  updateSleepDurPreview();
+  document.getElementById('sleepStart').value = dtLocalStr(Date.now());
   document.getElementById('sleepOverlay').classList.remove('hide');
 }
 function closeSleepModal() { document.getElementById('sleepOverlay').classList.add('hide'); }
 function sleepOverlayClick(e) { if(e.target===document.getElementById('sleepOverlay')) closeSleepModal(); }
-function updateSleepDurPreview() {
-  var s = document.getElementById('sleepStart').value;
-  var e = document.getElementById('sleepEnd').value;
-  var el = document.getElementById('sleepDurPreview');
-  if (s && e) {
-    var diff = new Date(e).getTime() - new Date(s).getTime();
-    el.textContent = diff>0 ? '睡眠時間: '+sleepDurStr(diff) : '⚠️ 終了時刻が開始より前です';
-  } else { el.textContent=''; }
-}
 function saveSleepRecord() {
   var s = document.getElementById('sleepStart').value;
-  var e = document.getElementById('sleepEnd').value;
-  if (!s || !e) { showToast('開始・終了時刻を入力してください'); return; }
-  var startTs = new Date(s).getTime(), endTs = new Date(e).getTime();
-  if (endTs <= startTs) { showToast('⚠️ 終了時刻が開始より前です'); return; }
-  sleepRecs.push({ id: Date.now().toString(), startTs: startTs, endTs: endTs });
-  sleepRecs.sort(function(a,b){ return a.startTs-b.startTs; });
+  if (!s) { showToast('寝た時刻を入力してください'); return; }
+  sleepRecs.push({ id: Date.now().toString(), ts: new Date(s).getTime() });
+  sleepRecs.sort(function(a,b){ return a.ts-b.ts; });
   saveSleep();
   closeSleepModal();
   updateElapsed();
-  showToast('✓ 睡眠を記録しました ('+sleepDurStr(endTs-startTs)+')');
-}
-function deleteSleepRecord(id) {
-  if (!confirm('この睡眠記録を削除しますか？')) return;
-  sleepRecs = sleepRecs.filter(function(r){ return r.id!==id; });
-  saveSleep(); updateElapsed(); showToast('削除しました');
+  showToast('✓ 睡眠を記録しました');
 }
 
 // ─── Elapsed display ─────────────────────────────────────────────────────────
@@ -1086,11 +1057,11 @@ function updateElapsed() {
   else{document.getElementById('elPoop').textContent='--:--';document.getElementById('elPoopSub').textContent='記録なし';}
   if(lpee){document.getElementById('elPee').textContent=dur(now-lpee.ts);document.getElementById('elPeeSub').textContent=fmtShort(lpee.ts);}
   else{document.getElementById('elPee').textContent='--:--';document.getElementById('elPeeSub').textContent='記録なし';}
-  // 睡眠: 最後に起きた時刻からの経過
+  // 睡眠: 最後に寝た時刻からの経過
   var ls = sleepRecs.length ? sleepRecs[sleepRecs.length-1] : null;
   if(ls){
-    document.getElementById('elSleep').textContent=dur(now-ls.endTs);
-    document.getElementById('elSleepSub').textContent='睡眠'+sleepDurStr(ls.endTs-ls.startTs)+' · '+fmtShort(ls.endTs)+'起床';
+    document.getElementById('elSleep').textContent=dur(now-ls.ts);
+    document.getElementById('elSleepSub').textContent=fmtShort(ls.ts)+' に就寝';
   } else {
     document.getElementById('elSleep').textContent='--:--';
     document.getElementById('elSleepSub').textContent='記録なし';
