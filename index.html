@@ -14,6 +14,7 @@
       --poop-bg: #fffbeb; --pee-bg: #fefce8;
       --breast-t: #be185d; --formula-t: #1d4ed8;
       --poop-t: #92400e; --pee-t: #78350f;
+      --sleep-bg: #f5f3ff; --sleep-t: #6d28d9;
       --ok: #10b981; --warn: #f59e0b; --danger: #ef4444;
       --fs-base: 15px;
       --fs-sm:   12px;
@@ -29,6 +30,7 @@
       --poop-bg: #2d1a00; --pee-bg: #2a2000;
       --breast-t: #f9a8d4; --formula-t: #93c5fd;
       --poop-t: #fcd34d; --pee-t: #fde68a;
+      --sleep-bg: #2e1065; --sleep-t: #c4b5fd;
     }
     @media (prefers-color-scheme: dark) {
       [data-theme="auto"] {
@@ -173,6 +175,7 @@
     .btn-formula { background: var(--formula-bg); color: var(--formula-t); }
     .btn-poop    { background: var(--poop-bg);    color: var(--poop-t); }
     .btn-pee     { background: var(--pee-bg);     color: var(--pee-t); }
+    .btn-sleep   { background: var(--sleep-bg);  color: var(--sleep-t); }
 
     /* Record list */
     .rec-item { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border); }
@@ -331,6 +334,11 @@
       <div class="dur" style="color:#38bdf8" id="elPee">--:--</div>
       <div class="meta" id="elPeeSub">記録なし</div>
     </div>
+    <div class="elapsed-box" id="elBoxSleep">
+      <div class="lbl">💤 前回起床</div>
+      <div class="dur" style="color:#8b5cf6" id="elSleep">--:--</div>
+      <div class="meta" id="elSleepSub">記録なし</div>
+    </div>
   </div>
   <div class="card" id="todayTotalsCard">
     <div class="card-head">📊 本日の授乳まとめ</div>
@@ -360,6 +368,13 @@
     <div class="btn-grid">
       <button class="act-btn btn-poop" onclick="openModal('poop')"><span class="bi">💩</span><span class="bl">うんち</span></button>
       <button class="act-btn btn-pee" onclick="openModal('pee')"><span class="bi">💧</span><span class="bl">おしっこ</span></button>
+    </div>
+  </div>
+  <div class="card" id="homeSleepCard">
+    <div class="card-head">💤 睡眠を記録</div>
+    <div id="sleepStatus" style="font-size:13px;color:var(--sub);text-align:center;margin-bottom:10px;display:none"></div>
+    <div class="btn-grid">
+      <button class="act-btn btn-sleep" onclick="openSleepModal()"><span class="bi">😴</span><span class="bl">睡眠を記録</span></button>
     </div>
   </div>
 </div>
@@ -598,6 +613,14 @@ function json(d){
           <span class="toggle-slider"></span>
         </label>
       </div>
+      <div class="toggle-divider"></div>
+      <div class="toggle-row">
+        <span class="toggle-label">💤 睡眠セクション</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggleSleep" onchange="toggleHomeSection('sleep')">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
     </div>
   </div>
 </div>
@@ -639,6 +662,22 @@ function json(d){
     <div class="modal-btns">
       <button class="mbtn mbtn-cancel" onclick="closeModal()">キャンセル</button>
       <button class="mbtn mbtn-save" onclick="saveRecord()">保存する</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sleep modal -->
+<div class="overlay hide" id="sleepOverlay" onclick="sleepOverlayClick(event)">
+  <div class="modal-box">
+    <h3>💤 睡眠を記録</h3>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:6px;text-align:center">寝た時刻</div>
+    <input type="datetime-local" class="time-input" id="sleepStart" style="font-size:16px;margin-bottom:12px" oninput="updateSleepDurPreview()">
+    <div style="font-size:12px;color:var(--sub);margin-bottom:6px;text-align:center">起きた時刻</div>
+    <input type="datetime-local" class="time-input" id="sleepEnd" style="font-size:16px;margin-bottom:16px" oninput="updateSleepDurPreview()">
+    <div id="sleepDurPreview" style="text-align:center;font-size:14px;color:var(--sleep-t);font-weight:700;margin-bottom:12px"></div>
+    <div class="modal-btns">
+      <button class="mbtn mbtn-cancel" onclick="closeSleepModal()">キャンセル</button>
+      <button class="mbtn mbtn-save" onclick="saveSleepRecord()">保存する</button>
     </div>
   </div>
 </div>
@@ -742,13 +781,15 @@ const T = {
 };
 
 // ─── State ──────────────────────────────────────────────────────────────────
-const KEY     = 'bcn_v1';
-const GAS_KEY = 'bcn_gas_url';
+const KEY       = 'bcn_v1';
+const GAS_KEY   = 'bcn_gas_url';
+const SLEEP_KEY = 'bcn_sleep_v1';
 const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbx_QH5oL5paSp4pvP6LOCE9SDXImVtFnnr1qqRGLzUw2EC7MZrXCwAc0yZfJXatR6UC/exec';
-let recs    = [];
-let gasUrl  = localStorage.getItem(GAS_KEY) || DEFAULT_GAS_URL;
-let pending = null;
-let curDays = 0;
+let recs      = [];
+let sleepRecs = [];
+let gasUrl    = localStorage.getItem(GAS_KEY) || DEFAULT_GAS_URL;
+let pending   = null;
+let curDays   = 0;
 
 // ─── Local storage ──────────────────────────────────────────────────────────
 function localLoad() {
@@ -975,6 +1016,60 @@ function countNoPoop(prs, days) {
   return n;
 }
 
+// ─── Sleep records ───────────────────────────────────────────────────────────
+function loadSleep() {
+  try { var r=localStorage.getItem(SLEEP_KEY); sleepRecs=r?JSON.parse(r):[]; } catch(e){ sleepRecs=[]; }
+}
+function saveSleep() {
+  try { localStorage.setItem(SLEEP_KEY, JSON.stringify(sleepRecs)); } catch(e){}
+}
+function sleepDurStr(ms) {
+  var totalMin = Math.floor(ms/60000);
+  var h = Math.floor(totalMin/60), m = totalMin%60;
+  return h>0 ? h+'時間'+m+'分' : m+'分';
+}
+function dtLocalStr(ts) {
+  var d = new Date(ts);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')
+    +'T'+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+function openSleepModal() {
+  var now = Date.now();
+  document.getElementById('sleepEnd').value   = dtLocalStr(now);
+  document.getElementById('sleepStart').value = dtLocalStr(now - 60*60*1000); // 1時間前をデフォルト
+  updateSleepDurPreview();
+  document.getElementById('sleepOverlay').classList.remove('hide');
+}
+function closeSleepModal() { document.getElementById('sleepOverlay').classList.add('hide'); }
+function sleepOverlayClick(e) { if(e.target===document.getElementById('sleepOverlay')) closeSleepModal(); }
+function updateSleepDurPreview() {
+  var s = document.getElementById('sleepStart').value;
+  var e = document.getElementById('sleepEnd').value;
+  var el = document.getElementById('sleepDurPreview');
+  if (s && e) {
+    var diff = new Date(e).getTime() - new Date(s).getTime();
+    el.textContent = diff>0 ? '睡眠時間: '+sleepDurStr(diff) : '⚠️ 終了時刻が開始より前です';
+  } else { el.textContent=''; }
+}
+function saveSleepRecord() {
+  var s = document.getElementById('sleepStart').value;
+  var e = document.getElementById('sleepEnd').value;
+  if (!s || !e) { showToast('開始・終了時刻を入力してください'); return; }
+  var startTs = new Date(s).getTime(), endTs = new Date(e).getTime();
+  if (endTs <= startTs) { showToast('⚠️ 終了時刻が開始より前です'); return; }
+  sleepRecs.push({ id: Date.now().toString(), startTs: startTs, endTs: endTs });
+  sleepRecs.sort(function(a,b){ return a.startTs-b.startTs; });
+  saveSleep();
+  closeSleepModal();
+  updateElapsed();
+  showToast('✓ 睡眠を記録しました ('+sleepDurStr(endTs-startTs)+')');
+}
+function deleteSleepRecord(id) {
+  if (!confirm('この睡眠記録を削除しますか？')) return;
+  sleepRecs = sleepRecs.filter(function(r){ return r.id!==id; });
+  saveSleep(); updateElapsed(); showToast('削除しました');
+}
+
 // ─── Elapsed display ─────────────────────────────────────────────────────────
 function updateElapsed() {
   var now=Date.now();
@@ -991,6 +1086,15 @@ function updateElapsed() {
   else{document.getElementById('elPoop').textContent='--:--';document.getElementById('elPoopSub').textContent='記録なし';}
   if(lpee){document.getElementById('elPee').textContent=dur(now-lpee.ts);document.getElementById('elPeeSub').textContent=fmtShort(lpee.ts);}
   else{document.getElementById('elPee').textContent='--:--';document.getElementById('elPeeSub').textContent='記録なし';}
+  // 睡眠: 最後に起きた時刻からの経過
+  var ls = sleepRecs.length ? sleepRecs[sleepRecs.length-1] : null;
+  if(ls){
+    document.getElementById('elSleep').textContent=dur(now-ls.endTs);
+    document.getElementById('elSleepSub').textContent='睡眠'+sleepDurStr(ls.endTs-ls.startTs)+' · '+fmtShort(ls.endTs)+'起床';
+  } else {
+    document.getElementById('elSleep').textContent='--:--';
+    document.getElementById('elSleepSub').textContent='記録なし';
+  }
 }
 
 // ─── Record Timeline ─────────────────────────────────────────────────────────
@@ -1721,34 +1825,41 @@ function initFontSize() {
 }
 
 // ─── ホーム表示切替 ───────────────────────────────────────────────────────────
-function applyHomeVisibility(feed, exc) {
-  var showFeed = feed !== '0';
-  var showExc  = exc  !== '0';
+function applyHomeVisibility(feed, exc, sleep) {
+  var showFeed  = feed  !== '0';
+  var showExc   = exc   !== '0';
+  var showSleep = sleep !== '0';
   // 前回記録ボックス
-  document.getElementById('elBoxFeed').style.display = showFeed ? '' : 'none';
-  document.getElementById('elBoxPoop').style.display = showExc  ? '' : 'none';
-  document.getElementById('elBoxPee').style.display  = showExc  ? '' : 'none';
+  document.getElementById('elBoxFeed').style.display  = showFeed  ? '' : 'none';
+  document.getElementById('elBoxPoop').style.display  = showExc   ? '' : 'none';
+  document.getElementById('elBoxPee').style.display   = showExc   ? '' : 'none';
+  document.getElementById('elBoxSleep').style.display = showSleep ? '' : 'none';
   // 記録カード・まとめカード
-  document.getElementById('homeFeedCard').style.display   = showFeed ? '' : 'none';
-  document.getElementById('homeExcCard').style.display    = showExc  ? '' : 'none';
-  document.getElementById('todayTotalsCard').style.display = showFeed ? '' : 'none';
+  document.getElementById('homeFeedCard').style.display    = showFeed  ? '' : 'none';
+  document.getElementById('homeExcCard').style.display     = showExc   ? '' : 'none';
+  document.getElementById('homeSleepCard').style.display   = showSleep ? '' : 'none';
+  document.getElementById('todayTotalsCard').style.display = showFeed  ? '' : 'none';
   // トグルスイッチの状態
-  document.getElementById('toggleFeed').checked = showFeed;
-  document.getElementById('toggleExc').checked  = showExc;
+  document.getElementById('toggleFeed').checked  = showFeed;
+  document.getElementById('toggleExc').checked   = showExc;
+  document.getElementById('toggleSleep').checked = showSleep;
 }
 
 function toggleHomeSection(section) {
-  var feedVal = document.getElementById('toggleFeed').checked ? '1' : '0';
-  var excVal  = document.getElementById('toggleExc').checked  ? '1' : '0';
-  localStorage.setItem('bcn_show_feed', feedVal);
-  localStorage.setItem('bcn_show_exc',  excVal);
-  applyHomeVisibility(feedVal, excVal);
+  var feedVal  = document.getElementById('toggleFeed').checked  ? '1' : '0';
+  var excVal   = document.getElementById('toggleExc').checked   ? '1' : '0';
+  var sleepVal = document.getElementById('toggleSleep').checked ? '1' : '0';
+  localStorage.setItem('bcn_show_feed',  feedVal);
+  localStorage.setItem('bcn_show_exc',   excVal);
+  localStorage.setItem('bcn_show_sleep', sleepVal);
+  applyHomeVisibility(feedVal, excVal, sleepVal);
 }
 
 function initHomeVisibility() {
-  var feed = localStorage.getItem('bcn_show_feed') !== null ? localStorage.getItem('bcn_show_feed') : '1';
-  var exc  = localStorage.getItem('bcn_show_exc')  !== null ? localStorage.getItem('bcn_show_exc')  : '1';
-  applyHomeVisibility(feed, exc);
+  var feed  = localStorage.getItem('bcn_show_feed')  !== null ? localStorage.getItem('bcn_show_feed')  : '1';
+  var exc   = localStorage.getItem('bcn_show_exc')   !== null ? localStorage.getItem('bcn_show_exc')   : '1';
+  var sleep = localStorage.getItem('bcn_show_sleep') !== null ? localStorage.getItem('bcn_show_sleep') : '1';
+  applyHomeVisibility(feed, exc, sleep);
 }
 
 // ─── 本日授乳まとめ ────────────────────────────────────────────────────────────
@@ -1832,6 +1943,7 @@ initTheme();
 initFontSize();
 initHomeVisibility();
 localLoad();
+loadSleep();
 loadGrowth();
 updateGasStatus();
 refresh();
