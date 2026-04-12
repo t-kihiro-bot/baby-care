@@ -15,6 +15,7 @@
       --breast-t: #be185d; --formula-t: #1d4ed8;
       --poop-t: #92400e; --pee-t: #78350f;
       --sleep-bg: #f5f3ff; --sleep-t: #6d28d9;
+      --wake-bg: #fff7ed; --wake-t: #c2410c;
       --ok: #10b981; --warn: #f59e0b; --danger: #ef4444;
       --fs-base: 15px;
       --fs-sm:   12px;
@@ -31,6 +32,7 @@
       --breast-t: #f9a8d4; --formula-t: #93c5fd;
       --poop-t: #fcd34d; --pee-t: #fde68a;
       --sleep-bg: #2e1065; --sleep-t: #c4b5fd;
+      --wake-bg: #431407; --wake-t: #fdba74;
     }
     @media (prefers-color-scheme: dark) {
       [data-theme="auto"] {
@@ -176,6 +178,7 @@
     .btn-poop    { background: var(--poop-bg);    color: var(--poop-t); }
     .btn-pee     { background: var(--pee-bg);     color: var(--pee-t); }
     .btn-sleep   { background: var(--sleep-bg);  color: var(--sleep-t); }
+    .btn-wake    { background: var(--wake-bg);   color: var(--wake-t); }
 
     /* Record list */
     .rec-item { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border); }
@@ -335,7 +338,7 @@
       <div class="meta" id="elPeeSub">記録なし</div>
     </div>
     <div class="elapsed-box" id="elBoxSleep">
-      <div class="lbl">💤 前回就寝</div>
+      <div class="lbl" id="elBoxSleepLbl">💤 前回就寝</div>
       <div class="dur" style="color:#8b5cf6" id="elSleep">--:--</div>
       <div class="meta" id="elSleepSub">記録なし</div>
     </div>
@@ -374,6 +377,7 @@
     <div class="card-head">💤 睡眠を記録</div>
     <div class="btn-grid">
       <button class="act-btn btn-sleep" onclick="openSleepModal()"><span class="bi">😴</span><span class="bl">寝た</span></button>
+      <button class="act-btn btn-wake" onclick="openWakeModal()"><span class="bi">☀️</span><span class="bl">起きた</span></button>
     </div>
   </div>
 </div>
@@ -520,10 +524,24 @@
     var sl=getSleepSheet(),sv=sl.getDataRange().getValues(),out=[];
     for(var i=1;i&lt;sv.length;i++){
       if(!sv[i][0])continue;
-      out.push({id:String(sv[i][0]),ts:Number(sv[i][1])});
+      var sr={id:String(sv[i][0]),ts:Number(sv[i][1])};
+      if(sv[i][3]&&sv[i][3]!=='')sr.wakeTs=Number(sv[i][3]);
+      out.push(sr);
     }
     out.sort(function(a,b){return a.ts-b.ts;});
     return json(out);
+  }
+  if(p.action==='updatewake'){
+    var sl=getSleepSheet(),sv=sl.getDataRange().getValues();
+    for(var i=sv.length-1;i&gt;=1;i--){
+      if(String(sv[i][0])===String(p.id)){
+        var dw=new Date(Number(p.wakeTs));
+        sl.getRange(i+1,4).setValue(Number(p.wakeTs));
+        sl.getRange(i+1,5).setValue(Utilities.formatDate(dw,'Asia/Tokyo','yyyy/MM/dd HH:mm'));
+        break;
+      }
+    }
+    return ok();
   }
   if(p.action==='setconfig'){
     var cs=getConfigSheet(),cv=cs.getDataRange().getValues();
@@ -570,7 +588,7 @@ function getGrowthSheet(){
 function getSleepSheet(){
   var ss=SpreadsheetApp.getActiveSpreadsheet();
   var s=ss.getSheetByName('sleep');
-  if(!s){s=ss.insertSheet('sleep');s.appendRow(['id','ts','日時']);}
+  if(!s){s=ss.insertSheet('sleep');s.appendRow(['id','ts','日時','wakeTs','起きた日時']);}
   return s;
 }
 function getConfigSheet(){
@@ -704,6 +722,19 @@ function json(d){
     <div class="modal-btns">
       <button class="mbtn mbtn-cancel" onclick="closeSleepModal()">キャンセル</button>
       <button class="mbtn mbtn-save" onclick="saveSleepRecord()">保存する</button>
+    </div>
+  </div>
+</div>
+
+<!-- Wake modal -->
+<div class="overlay hide" id="wakeOverlay" onclick="wakeOverlayClick(event)">
+  <div class="modal-box">
+    <h3>☀️ 起床を記録</h3>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:6px;text-align:center">起きた時刻</div>
+    <input type="datetime-local" class="time-input" id="wakeTime" style="font-size:16px;margin-bottom:16px">
+    <div class="modal-btns">
+      <button class="mbtn mbtn-cancel" onclick="closeWakeModal()">キャンセル</button>
+      <button class="mbtn mbtn-save" onclick="saveWakeRecord()">保存する</button>
     </div>
   </div>
 </div>
@@ -1078,6 +1109,30 @@ function saveSleepRecord() {
   updateElapsed();
   showToast('✓ 睡眠を記録しました');
 }
+function openWakeModal() {
+  document.getElementById('wakeTime').value = dtLocalStr(Date.now());
+  document.getElementById('wakeOverlay').classList.remove('hide');
+}
+function closeWakeModal() { document.getElementById('wakeOverlay').classList.add('hide'); }
+function wakeOverlayClick(e) { if(e.target===document.getElementById('wakeOverlay')) closeWakeModal(); }
+function saveWakeRecord() {
+  var w = document.getElementById('wakeTime').value;
+  if (!w) { showToast('起きた時刻を入力してください'); return; }
+  // 最後に寝た記録でwakeTs未設定のものを探す
+  var ls = null;
+  for (var i = sleepRecs.length - 1; i >= 0; i--) {
+    if (!sleepRecs[i].wakeTs) { ls = sleepRecs[i]; break; }
+  }
+  if (!ls) { showToast('就寝記録がありません'); closeWakeModal(); return; }
+  var wakeTs = new Date(w).getTime();
+  ls.wakeTs = wakeTs;
+  saveSleep();
+  updateWakeToSheet(ls.id, wakeTs);
+  closeWakeModal();
+  updateElapsed();
+  renderRecs();
+  showToast('✓ 起床を記録しました');
+}
 
 // ─── Elapsed display ─────────────────────────────────────────────────────────
 function updateElapsed() {
@@ -1095,14 +1150,22 @@ function updateElapsed() {
   else{document.getElementById('elPoop').textContent='--:--';document.getElementById('elPoopSub').textContent='記録なし';}
   if(lpee){document.getElementById('elPee').textContent=dur(now-lpee.ts);document.getElementById('elPeeSub').textContent=fmtShort(lpee.ts);}
   else{document.getElementById('elPee').textContent='--:--';document.getElementById('elPeeSub').textContent='記録なし';}
-  // 睡眠: 最後に寝た時刻からの経過
+  // 睡眠: 就寝中 or 起床済みで表示切替
   var ls = sleepRecs.length ? sleepRecs[sleepRecs.length-1] : null;
-  if(ls){
-    document.getElementById('elSleep').textContent=dur(now-ls.ts);
-    document.getElementById('elSleepSub').textContent=fmtShort(ls.ts)+' に就寝';
+  if (ls && !ls.wakeTs) {
+    // 就寝中
+    document.getElementById('elBoxSleepLbl').textContent = '😴 就寝中';
+    document.getElementById('elSleep').textContent = dur(now - ls.ts);
+    document.getElementById('elSleepSub').textContent = fmtShort(ls.ts) + ' に就寝';
+  } else if (ls && ls.wakeTs) {
+    // 起床済み
+    document.getElementById('elBoxSleepLbl').textContent = '💤 前回就寝';
+    document.getElementById('elSleep').textContent = '--:--';
+    document.getElementById('elSleepSub').textContent = fmtShort(ls.wakeTs) + ' に起床';
   } else {
-    document.getElementById('elSleep').textContent='--:--';
-    document.getElementById('elSleepSub').textContent='記録なし';
+    document.getElementById('elBoxSleepLbl').textContent = '💤 前回就寝';
+    document.getElementById('elSleep').textContent = '--:--';
+    document.getElementById('elSleepSub').textContent = '記録なし';
   }
 }
 
@@ -1143,7 +1206,7 @@ function renderRecs() {
   document.getElementById('dayNavNext').disabled = (viewDate.getTime() >= today.getTime());
 
   // 睡眠記録を統一フォーマットに変換（_sleep フラグ付き）
-  var sleepAsRecs = sleepRecs.map(function(s){ return {id:s.id, ts:s.ts, _sleep:true}; });
+  var sleepAsRecs = sleepRecs.map(function(s){ return {id:s.id, ts:s.ts, wakeTs:s.wakeTs, _sleep:true}; });
 
   // タブフィルタ
   var filtered;
@@ -1179,10 +1242,12 @@ function renderRecs() {
         var recTime = (function(){ var rd=new Date(r.ts); return rd.getHours()+':'+String(rd.getMinutes()).padStart(2,'0'); })();
         if (r._sleep) {
           // 就寝記録
+          var durationStr = r.wakeTs ? ' (' + dur(r.wakeTs - r.ts) + ')' : '';
+          var wakeTimeStr = r.wakeTs ? ' → ' + (function(){ var wd=new Date(r.wakeTs); return wd.getHours()+':'+String(wd.getMinutes()).padStart(2,'0'); })() : '';
           html += '<div class="tl-event" style="background:var(--sleep-bg);border-color:var(--sleep-t);color:var(--sleep-t)" onclick="deleteSleepFromTimeline(\''+r.id+'\')">';
           html += '<span class="tl-ico">💤</span>';
-          html += '<span>就寝</span>';
-          html += '<span style="font-size:11px;font-weight:400;opacity:.7">'+recTime+'</span>';
+          html += '<span>就寝'+durationStr+'</span>';
+          html += '<span style="font-size:11px;font-weight:400;opacity:.7">'+recTime+wakeTimeStr+'</span>';
           html += '</div>';
         } else {
           html += '<div class="tl-event" onclick="openActionModal(\''+r.id+'\')">';
@@ -1918,6 +1983,10 @@ async function addSleepToSheet(rec) {
 async function delSleepFromSheet(id) {
   if (!gasUrl) return;
   try { await sheetFetch({action:'delsleep', id:id}); } catch(e){}
+}
+async function updateWakeToSheet(id, wakeTs) {
+  if (!gasUrl) return;
+  try { await sheetFetch({action:'updatewake', id:id, wakeTs:wakeTs}); } catch(e){}
 }
 async function syncSleepFromSheet() {
   if (!gasUrl) return;
