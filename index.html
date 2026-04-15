@@ -669,6 +669,17 @@ function json(d){
         </label>
       </div>
     </div>
+    <div class="toggle-divider"></div>
+    <div style="margin-top:10px">
+      <div style="font-size:13px;color:var(--sub);margin-bottom:4px;font-weight:600">🍼 ミルク量プリセット</div>
+      <div style="font-size:12px;color:var(--sub);margin-bottom:8px">カンマ区切りで入力（例: 50,70,90,100,120）</div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="mlPresetsInput" inputmode="numeric"
+          style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;font-family:inherit"
+          placeholder="50,70,90,100,120">
+        <button class="setting-btn" style="margin:0;padding:10px 16px;white-space:nowrap" onclick="saveMlPresetsFromInput()">保存</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -691,14 +702,7 @@ function json(d){
     <input type="datetime-local" class="time-input" id="mTime">
     <div id="mlRow" class="hide">
       <div style="font-size:12px;color:var(--sub);margin-bottom:8px;text-align:center">量（任意）</div>
-      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;justify-content:center">
-        <button class="ml-preset" onclick="setMl(50)">50ml</button>
-        <button class="ml-preset" onclick="setMl(80)">80ml</button>
-        <button class="ml-preset" onclick="setMl(100)">100ml</button>
-        <button class="ml-preset" onclick="setMl(120)">120ml</button>
-        <button class="ml-preset" onclick="setMl(150)">150ml</button>
-        <button class="ml-preset" onclick="setMl(180)">180ml</button>
-      </div>
+      <div id="mlPresetBtns" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;justify-content:center"></div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
         <input type="number" id="mlInput" min="0" max="999" step="10" placeholder="直接入力"
           style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);background:var(--bg);color:var(--text);font-size:16px;text-align:center;font-family:inherit">
@@ -806,14 +810,7 @@ function json(d){
     <input type="datetime-local" class="time-input" id="editTime">
     <div id="editMlRow" class="hide">
       <div style="font-size:12px;color:var(--sub);margin-bottom:8px;text-align:center">量（任意）</div>
-      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;justify-content:center">
-        <button class="ml-preset" onclick="setEditMl(50)">50ml</button>
-        <button class="ml-preset" onclick="setEditMl(80)">80ml</button>
-        <button class="ml-preset" onclick="setEditMl(100)">100ml</button>
-        <button class="ml-preset" onclick="setEditMl(120)">120ml</button>
-        <button class="ml-preset" onclick="setEditMl(150)">150ml</button>
-        <button class="ml-preset" onclick="setEditMl(180)">180ml</button>
-      </div>
+      <div id="editMlPresetBtns" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;justify-content:center"></div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
         <input type="number" id="editMlInput" min="0" max="999" step="10" placeholder="直接入力"
           style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);background:var(--bg);color:var(--text);font-size:16px;text-align:center;font-family:inherit">
@@ -841,6 +838,9 @@ const T = {
 const KEY       = 'bcn_v1';
 const GAS_KEY   = 'bcn_gas_url';
 const SLEEP_KEY = 'bcn_sleep_v1';
+const ML_PRESETS_KEY = 'bcn_ml_presets';
+const DEFAULT_ML_PRESETS = [50,70,90,100,120];
+let mlPresets = DEFAULT_ML_PRESETS.slice();
 const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbx_QH5oL5paSp4pvP6LOCE9SDXImVtFnnr1qqRGLzUw2EC7MZrXCwAc0yZfJXatR6UC/exec';
 let recs      = [];
 let sleepRecs = [];
@@ -1071,6 +1071,36 @@ function countNoPoop(prs, days) {
     if(!prs.some(function(r){return r.ts>=a&&r.ts<b;}))n++;
   }
   return n;
+}
+
+// ─── Ml presets ──────────────────────────────────────────────────────────────
+function loadMlPresets() {
+  try {
+    var s = localStorage.getItem(ML_PRESETS_KEY);
+    if (s) { var p = JSON.parse(s); if (Array.isArray(p) && p.length) mlPresets = p; }
+  } catch(e){}
+}
+function renderMlPresets() {
+  ['mlPresetBtns','editMlPresetBtns'].forEach(function(id) {
+    var fn = id === 'mlPresetBtns' ? 'setMl' : 'setEditMl';
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = mlPresets.map(function(v) {
+      return '<button class="ml-preset" onclick="'+fn+'('+v+')">'+v+'ml</button>';
+    }).join('');
+  });
+  // 設定タブのinputにも反映
+  var inp = document.getElementById('mlPresetsInput');
+  if (inp) inp.value = mlPresets.join(',');
+}
+function saveMlPresetsFromInput() {
+  var val = document.getElementById('mlPresetsInput').value;
+  var parsed = val.split(',').map(function(s){ return parseInt(s.trim(), 10); }).filter(function(n){ return !isNaN(n) && n > 0; });
+  if (!parsed.length) { showToast('有効な数値を入力してください'); return; }
+  mlPresets = parsed;
+  localStorage.setItem(ML_PRESETS_KEY, JSON.stringify(mlPresets));
+  renderMlPresets();
+  showToast('✓ プリセットを保存しました');
 }
 
 // ─── Sleep records ───────────────────────────────────────────────────────────
@@ -2048,6 +2078,8 @@ initTheme();
 initFontSize();
 initHomeVisibility();
 localLoad();
+loadMlPresets();
+renderMlPresets();
 loadSleep();
 loadGrowth();
 updateGasStatus();
