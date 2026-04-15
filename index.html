@@ -148,6 +148,10 @@
     .rec-tab { flex: 1; padding: 8px 4px; border: none; border-radius: 8px; background: none; color: var(--sub); font-size: 13px; font-weight: 700; cursor: pointer; }
     .rec-tab.on { background: var(--card); color: var(--active); box-shadow: 0 1px 5px rgba(0,0,0,.1); }
     .rec-day-nav { display: flex; align-items: center; justify-content: space-between; background: var(--card); border-radius: 12px; padding: 8px 4px; margin-bottom: 12px; }
+    .sum-item { flex: 1; }
+    .sum-val { font-size: 18px; font-weight: 800; color: var(--active); }
+    .sum-lbl { font-size: 11px; color: var(--sub); margin-top: 2px; }
+    .sum-div { width: 1px; background: var(--border); align-self: stretch; margin: 4px 0; }
     .day-nav-btn { background: none; border: none; font-size: 26px; color: var(--active); cursor: pointer; padding: 0 12px; line-height: 1; font-weight: 700; }
     .day-nav-btn:disabled { color: var(--border); cursor: default; }
     .day-nav-label { font-size: 15px; font-weight: 700; color: var(--text); }
@@ -395,6 +399,7 @@
     <span id="recDayLabel" class="day-nav-label"></span>
     <button class="day-nav-btn" id="dayNavNext" onclick="changeRecDay(1)">›</button>
   </div>
+  <div id="feedSummaryBar" class="hide" style="background:var(--card);border-radius:12px;padding:10px 14px;margin-bottom:12px;display:flex;gap:0;justify-content:space-around;text-align:center"></div>
   <div id="recTimeline"></div>
 </div>
 
@@ -1234,6 +1239,30 @@ function renderRecs() {
   document.getElementById('recDayLabel').textContent = (viewDate.getMonth()+1)+'月'+viewDate.getDate()+'日（'+wd+'）';
   var today = new Date(); today.setHours(0,0,0,0);
   document.getElementById('dayNavNext').disabled = (viewDate.getTime() >= today.getTime());
+
+  // 授乳サマリーバー
+  var sumBar = document.getElementById('feedSummaryBar');
+  if (curRecTab === 'feed') {
+    var feedDay = recs.filter(function(r){ return r.cat==='feed' && r.ts>=viewDate.getTime() && r.ts<viewDate.getTime()+86400000; });
+    var totalCount = feedDay.length;
+    var mlRecs = feedDay.filter(function(r){ return r.ml; });
+    var totalMl = mlRecs.reduce(function(s,r){ return s+r.ml; }, 0);
+    var avgMl = mlRecs.length ? Math.round(totalMl / mlRecs.length) : 0;
+    var items = [
+      {val: totalCount + '回', lbl: '授乳回数'},
+      {val: totalMl ? totalMl + 'ml' : '--', lbl: '合計ミルク'},
+      {val: avgMl ? avgMl + 'ml' : '--', lbl: '平均ミルク'},
+    ];
+    sumBar.innerHTML = items.map(function(it, i) {
+      return (i>0?'<div class="sum-div"></div>':'') +
+        '<div class="sum-item"><div class="sum-val">'+it.val+'</div><div class="sum-lbl">'+it.lbl+'</div></div>';
+    }).join('');
+    sumBar.classList.remove('hide');
+    sumBar.style.display = 'flex';
+  } else {
+    sumBar.classList.add('hide');
+    sumBar.style.display = 'none';
+  }
 
   // 睡眠記録を統一フォーマットに変換（_sleep フラグ付き）
   var sleepAsRecs = sleepRecs.map(function(s){ return {id:s.id, ts:s.ts, wakeTs:s.wakeTs, _sleep:true}; });
