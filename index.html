@@ -846,10 +846,9 @@ const SLEEP_KEY = 'bcn_sleep_v1';
 const ML_PRESETS_KEY = 'bcn_ml_presets';
 const DEFAULT_ML_PRESETS = [50,70,90,100,120];
 let mlPresets = DEFAULT_ML_PRESETS.slice();
-const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbx_QH5oL5paSp4pvP6LOCE9SDXImVtFnnr1qqRGLzUw2EC7MZrXCwAc0yZfJXatR6UC/exec';
 let recs      = [];
 let sleepRecs = [];
-let gasUrl    = localStorage.getItem(GAS_KEY) || DEFAULT_GAS_URL;
+let gasUrl    = localStorage.getItem(GAS_KEY) || '';
 let pending   = null;
 let curDays   = 0;
 
