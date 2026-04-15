@@ -1243,19 +1243,20 @@ function renderRecs() {
   // 授乳サマリーバー
   var sumBar = document.getElementById('feedSummaryBar');
   if (curRecTab === 'feed') {
-    var feedDay = recs.filter(function(r){ return r.cat==='feed' && r.ts>=viewDate.getTime() && r.ts<viewDate.getTime()+86400000; });
-    var totalCount = feedDay.length;
-    var mlRecs = feedDay.filter(function(r){ return r.ml; });
-    var totalMl = mlRecs.reduce(function(s,r){ return s+r.ml; }, 0);
-    var avgMl = mlRecs.length ? Math.round(totalMl / mlRecs.length) : 0;
+    var dayStart2 = viewDate.getTime(), dayEnd2 = dayStart2 + 86400000;
+    var feedDay = recs.filter(function(r){ return r.cat==='feed' && r.ts>=dayStart2 && r.ts<dayEnd2; });
+    var breastCount  = feedDay.filter(function(r){ return r.type==='breast'; }).length;
+    var formulaRecs  = feedDay.filter(function(r){ return r.type==='formula'; });
+    var formulaCount = formulaRecs.length;
+    var totalMl = formulaRecs.reduce(function(s,r){ return s+(r.ml||0); }, 0);
     var items = [
-      {val: totalCount + '回', lbl: '授乳回数'},
-      {val: totalMl ? totalMl + 'ml' : '--', lbl: '合計ミルク'},
-      {val: avgMl ? avgMl + 'ml' : '--', lbl: '平均ミルク'},
+      {val: breastCount+'回',  lbl: '🤱 母乳',   color: 'var(--breast-t)'},
+      {val: formulaCount+'回', lbl: '🍼 ミルク',  color: 'var(--formula-t)'},
+      {val: totalMl ? totalMl+'ml' : '--', lbl: '合計ミルク量', color: 'var(--active)'},
     ];
     sumBar.innerHTML = items.map(function(it, i) {
       return (i>0?'<div class="sum-div"></div>':'') +
-        '<div class="sum-item"><div class="sum-val">'+it.val+'</div><div class="sum-lbl">'+it.lbl+'</div></div>';
+        '<div class="sum-item"><div class="sum-val" style="color:'+it.color+'">'+it.val+'</div><div class="sum-lbl">'+it.lbl+'</div></div>';
     }).join('');
     sumBar.classList.remove('hide');
     sumBar.style.display = 'flex';
