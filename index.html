@@ -567,6 +567,42 @@
     }
     return json(cfg);
   }
+  if(p.action==='readall'){
+    var v2=s.getDataRange().getValues(),recsOut=[];
+    for(var i=1;i&lt;v2.length;i++){
+      if(!v2[i][0])continue;
+      var rc={id:String(v2[i][0]),type:v2[i][1],cat:v2[i][2],ts:Number(v2[i][3])};
+      if(v2[i][5])rc.ml=Number(v2[i][5]);
+      recsOut.push(rc);
+    }
+    recsOut.sort(function(a,b){return b.ts-a.ts;});
+    var gs2=getGrowthSheet(),gv2=gs2.getDataRange().getValues(),growthOut=[];
+    for(var i=1;i&lt;gv2.length;i++){
+      if(!gv2[i][0])continue;
+      var gr={id:String(gv2[i][0]),ts:Number(gv2[i][1])};
+      if(gv2[i][2]!=='')gr.weight=Number(gv2[i][2]);
+      if(gv2[i][3]!=='')gr.height=Number(gv2[i][3]);
+      growthOut.push(gr);
+    }
+    growthOut.sort(function(a,b){return a.ts-b.ts;});
+    var sl2=getSleepSheet(),sv2=sl2.getDataRange().getValues(),sleepOut=[];
+    for(var i=1;i&lt;sv2.length;i++){
+      if(!sv2[i][0])continue;
+      var sr={id:String(sv2[i][0]),ts:Number(sv2[i][1])};
+      if(sv2[i][3]&&sv2[i][3]!=='')sr.wakeTs=Number(sv2[i][3]);
+      sleepOut.push(sr);
+    }
+    sleepOut.sort(function(a,b){return a.ts-b.ts;});
+    var cs2=getConfigSheet(),cv2=cs2.getDataRange().getValues(),cfgOut={};
+    for(var i=1;i&lt;cv2.length;i++){
+      if(!cv2[i][0])continue;
+      var cv2val=cv2[i][1];
+      if(cv2val instanceof Date){cv2val=Utilities.formatDate(cv2val,'Asia/Tokyo','yyyy-MM-dd');}
+      else{cv2val=String(cv2val);}
+      cfgOut[cv2[i][0]]=cv2val;
+    }
+    return json({records:recsOut,growth:growthOut,sleep:sleepOut,config:cfgOut});
+  }
   var v=s.getDataRange().getValues(),out=[];
   for(var i=1;i&lt;v.length;i++){
     if(!v[i][0])continue;
@@ -906,6 +942,44 @@ async function syncFromSheet() {
   return false;
 }
 
+async function syncAllFromSheet() {
+  if (!gasUrl) return false;
+  setLoading(true);
+  try {
+    var data = await sheetFetch({action:'readall'});
+    if (!data) { setLoading(false); return false; }
+    if (Array.isArray(data.records)) { recs = data.records; localSave(); }
+    if (Array.isArray(data.growth))  { growthRecs = data.growth; saveGrowth(); }
+    if (Array.isArray(data.sleep))   { sleepRecs = data.sleep; saveSleep(); }
+    if (data.config) {
+      var cfg = data.config;
+      if (cfg.name) localStorage.setItem('bcn_name', cfg.name);
+      if (cfg.birthdate) {
+        var bdStr = String(cfg.birthdate);
+        var normalized = null;
+        if (bdStr.match(/^(\d{4})-(\d{2})-(\d{2})$/)) {
+          normalized = bdStr;
+        } else {
+          var monthMap = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+          var mm = bdStr.match(/\w{3}\s+(\w{3})\s+(\d{1,2})\s+(\d{4})/);
+          if (mm && monthMap[mm[1]] !== undefined) {
+            normalized = mm[3]+'-'+String(monthMap[mm[1]]+1).padStart(2,'0')+'-'+String(Number(mm[2])).padStart(2,'0');
+          }
+        }
+        if (normalized) localStorage.setItem('bcn_birthdate', normalized);
+      }
+      if (cfg.gender) localStorage.setItem('bcn_gender', cfg.gender);
+    }
+    setSyncDot('ok');
+    setLoading(false);
+    return true;
+  } catch(e) {
+    setSyncDot('err');
+    setLoading(false);
+    return false;
+  }
+}
+
 async function addToSheet(rec) {
   if (!gasUrl) return;
   try {
@@ -931,8 +1005,8 @@ async function delFromSheet(id) {
 async function manualSync() {
   if (!gasUrl) { showToast('⚙️ 設定タブでURLを入力してください'); return; }
   showToast('🔄 同期中...');
-  var ok = await syncFromSheet();
-  if (ok) { showToast('✅ 同期完了（' + recs.length + '件）'); refresh(); }
+  var ok = await syncAllFromSheet();
+  if (ok) { initBabyInfoUI(); showToast('✅ 同期完了（' + recs.length + '件）'); refresh(); renderGrowth(); }
 }
 
 // ─── GAS URL settings ───────────────────────────────────────────────────────
@@ -942,9 +1016,9 @@ async function saveGasUrl() {
   gasUrl = val;
   localStorage.setItem(GAS_KEY, gasUrl);
   showToast('🔄 接続テスト中...');
-  var ok = await syncFromSheet();
+  var ok = await syncAllFromSheet();
   updateGasStatus();
-  if (ok) { showToast('✅ 接続成功！同期しました'); refresh(); }
+  if (ok) { initBabyInfoUI(); showToast('✅ 接続成功！同期しました'); refresh(); renderGrowth(); }
   else    { showToast('❌ 接続失敗。URLを確認してください'); }
 }
 
@@ -2116,14 +2190,9 @@ refresh();
 setInterval(updateElapsed, 15000);
 // 起動時にシートから同期（config→growth の順で直列実行し、birthdateが確定してからrenderGrowth）
 if (gasUrl) {
-  syncFromSheet().then(function(ok){ if(ok) refresh(); });
-  syncConfigFromSheet()
-    .then(function(){
-      initBabyInfoUI();
-      return syncGrowthFromSheet();
-    })
-    .then(function(){ renderGrowth(); });
-  syncSleepFromSheet().then(function(){ updateElapsed(); renderRecs(); });
+  syncAllFromSheet().then(function(ok){
+    if (ok) { initBabyInfoUI(); refresh(); renderGrowth(); }
+  });
 }
 </script>
 </body>
